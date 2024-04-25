@@ -56,6 +56,7 @@ char str_timestamp[20];
 // update frequency in seconds
 int update_freq = 10;
 
+// setup function
 void setup() {
   // initialize the serial console
   Serial.begin(9600);
@@ -85,7 +86,7 @@ void setup() {
   lcd.setCursor(0,1);
   lcd.send_string("Initializing...");
 
-  // store the chars into the CGRAM
+  // store the custom characters into the CGRAM
   lcd.customSymbol(0, subs_1);
   lcd.customSymbol(1, subs_2);
   lcd.customSymbol(2, subs_5);
@@ -98,15 +99,15 @@ void setup() {
   // initialize the T/RH sensor
   Serial.println("Initializing the T/RH sensor");
   aht.begin();
-
 }
 
+// main loop
 void loop() {
   // Call the MQTT loop
   mqtt.loop();
-
 }
 
+// MQTT connection established callback
 void onConnectionEstablished() {
   // publish the connection status to MQTT and serial
   Serial.println("Connected to MQTT broker");
@@ -135,6 +136,7 @@ void onConnectionEstablished() {
   mqtt.executeDelayed(update_freq * 1000, readSensors);
 }
 
+// main sensor function
 void readSensors() {
   // read the PM sensor
   pms.read();
@@ -202,7 +204,6 @@ void get_timestamp(){
     "%04u-%02u-%02uT%02u:%02u:%02u",
     dt_year, dt_month, dt_day, dt_hour, dt_minute, dt_second
   );
-
 }
 
 // update the LCD with the PM values and the T/RH values
