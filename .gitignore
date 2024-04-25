@@ -1,0 +1,5 @@
+# support directories
+.theia/*
+.vscode/*
+build/*
+zip_libs/*
