@@ -18,6 +18,9 @@
 // include the configuration file
 #include "mqttconfig.h"
 
+// include the calibration file
+#include "cal.h"
+
 // csv buffer
 char csv_buffer[256];
 
@@ -160,6 +163,9 @@ void readSensors() {
   // read the T/RH
   sensors_event_t humidity, temp;
   aht.getEvent(&humidity, &temp);
+  // calibrate
+  temp.temperature = temp.temperature * tempSlope + tempIntercept;
+  humidity.relative_humidity = humidity.relative_humidity * rhumSlope + rhumIntercept;
 
   // update the LCD
   updateLCD(
