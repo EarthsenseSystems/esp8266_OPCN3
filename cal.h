@@ -2,9 +2,9 @@
 #define CAL_H
 
 // temperature linear parameters
-const float tempSlope = 0.9424;
-const float tempIntercept = -2.9283;
-const float rhumSlope = 0.7661;
-const float rhumIntercept = 18.8279;
+const float tempSlope = 1;
+const float tempIntercept = 0;
+const float rhumSlope = 1;
+const float rhumIntercept = 0;
 
 #endif

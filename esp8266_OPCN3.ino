@@ -12,8 +12,8 @@
 // include the configuration file
 #include "mqttconfig.h"
 
-// // include the calibration file
-// #include "cal.h"
+// include the calibration file
+#include "cal.h"
 
 // csv buffer
 char csvBuffer[256];
@@ -151,9 +151,9 @@ void readSensors() {
   float temp = opcn3Hist.getTempC();
   float rhum = opcn3Hist.getHumidity();
 
-  //  // calibrate
-  // temp.temperature = temp.temperature * tempSlope + tempIntercept;
-  // humidity.relative_humidity = humidity.relative_humidity * rhumSlope + rhumIntercept;
+   // calibrate
+  temp = temp * tempSlope + tempIntercept;
+  rhum = rhum * rhumSlope + rhumIntercept;
 
   if (mqtt.isConnected()) {
     // get the timestamp
