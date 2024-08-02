@@ -138,7 +138,14 @@ void onConnectionEstablished() {
   timeClient.setTimeOffset(0);
 
   // start the csv output to the serial console
-  Serial.println("timestamp,temp,rhum,pm1,pm2.5,pm10");
+  String header = "timestamp,temp,rhum,pm1,pm2.5,pm10";
+  char binBuffer[2];
+  for (int i =0; i < 24; i++) {
+    header += ",bin";
+    if (i < 10) header += "0";
+    header += i;
+  }
+  Serial.println(header);
 
   // execute the main sensor function as a delayed instruction
   mqtt.executeDelayed(updateFreq * 1000, readSensors);
@@ -160,13 +167,18 @@ void readSensors() {
     getTimestamp();
 
     // write the csv record to the console
+    String csvRecord;
     sprintf(csvBuffer, "%s,%f,%f,%f,%f,%f", 
       strTimestamp,
       temp,rhum,
       opcn3Hist.pm1,opcn3Hist.pm2_5,opcn3Hist.pm10
       );
-
-    Serial.println(csvBuffer);
+    csvRecord = csvBuffer;
+    for (int i = 0; i < 24; i++) {
+      csvRecord += ",";
+      csvRecord += opcn3Hist.binCounts[i];
+    }
+    Serial.println(csvRecord);
 
     // // publish the sensor values to MQTT
     // sprintf(mqtt_topic, "%s/temp", mqtt.getMqttClientName());
