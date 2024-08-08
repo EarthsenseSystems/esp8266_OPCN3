@@ -8,6 +8,7 @@
 #include <NTPClient.h>
 #include <SPI.h>
 #include <OPCN3.h>
+#include <ArduinoJson.h>
 
 // include the configuration file
 #include "mqttconfig.h"
@@ -94,24 +95,6 @@ void setup() {
   Serial.println("OPC-N3: Setup SPI connection");
   opcn3.initialize();
   // opcn3.initialize("debug");
-
-  // opcn3.begin();
-  // delay(1000);
-  // Serial.println("OPC-N3: Read serial number");
-  // opcn3.readSerialNumber();
-  // delay(1000);
-  // Serial.println("OPC-N3: DAC and power status");
-  // opcn3.readDACandPowerStatus();
-  // delay(1000);
-  // Serial.println("OPC-N3: Start and stop fan");
-  // opcn3.setFanDigitalPotShutdownState(true);
-  // delay(1000);
-  // Serial.println("OPC-N3: Start laser");
-  // opcn3.setLaserDigitalPotShutdownState(true);
-  // delay(1000);
-  // Serial.println("OPC-N3: Histogram reset");
-  // bool histogramReset = opcn3.resetHistogram();
-  // Serial.println(histogramReset);
   delay(1000);
 
   // now wait for wifi
@@ -130,8 +113,8 @@ void onConnectionEstablished() {
   Serial.println("Connected to MQTT broker");
   sprintf(mqttTopic, "%s/status", mqtt.getMqttClientName());
   mqtt.publish(mqttTopic, "connected", true);
-  // // HASS auto-discovery
-  // sendDiscoveryMessages();
+  // HASS auto-discovery
+  sendDiscoveryMessages();
 
   // start the NTP client and set to UTC
   timeClient.begin();
@@ -180,18 +163,32 @@ void readSensors() {
     }
     Serial.println(csvRecord);
 
-    // // publish the sensor values to MQTT
-    // sprintf(mqtt_topic, "%s/temp", mqtt.getMqttClientName());
-    // mqtt.publish(mqtt_topic, String(temp.temperature,DEC), true);
-    // sprintf(mqtt_topic, "%s/rhum", mqtt.getMqttClientName());
-    // mqtt.publish(mqtt_topic, String(humidity.relative_humidity,DEC), true);
-    // sprintf(mqtt_topic, "%s/pm01", mqtt.getMqttClientName());
-    // mqtt.publish(mqtt_topic, String(pms.pm01,DEC), true);
-    // sprintf(mqtt_topic, "%s/pm25", mqtt.getMqttClientName());
-    // mqtt.publish(mqtt_topic, String(pms.pm25,DEC), true);
-    // sprintf(mqtt_topic, "%s/pm10", mqtt.getMqttClientName());
-    // mqtt.publish(mqtt_topic, String(pms.pm10,DEC), true);
-  
+    // publish the sensor values to MQTT
+    sprintf(mqttTopic, "%s/temp", mqtt.getMqttClientName());
+    mqtt.publish(mqttTopic, String(temp,DEC), true);
+    sprintf(mqttTopic, "%s/rhum", mqtt.getMqttClientName());
+    mqtt.publish(mqttTopic, String(rhum,DEC), true);
+    sprintf(mqttTopic, "%s/pm01", mqtt.getMqttClientName());
+    mqtt.publish(mqttTopic, String(opcn3Hist.pm1,DEC), true);
+    sprintf(mqttTopic, "%s/pm25", mqtt.getMqttClientName());
+    mqtt.publish(mqttTopic, String(opcn3Hist.pm2_5,DEC), true);
+    sprintf(mqttTopic, "%s/pm10", mqtt.getMqttClientName());
+    mqtt.publish(mqttTopic, String(opcn3Hist.pm10,DEC), true);
+    
+    // transform the bin count data to JSON
+    JsonDocument opcn3Json;
+    for (int i = 0; i < 24; i++) {
+      String binName = "bin";
+      if (i < 10) binName += "0";
+      binName += i;
+      opcn3Json[binName] = opcn3Hist.binCounts[i];
+    }
+    // send the json to MQTT
+    String mqttJson;
+    serializeJson(opcn3Json, mqttJson);
+    sprintf(mqttTopic, "%s/bincnt", mqtt.getMqttClientName());
+    mqtt.publish(mqttTopic, mqttJson, true);
+
     // execute the main sensor function as a delayed instruction
     // this will keep the loop running
     mqtt.executeDelayed(updateFreq * 1000, readSensors);
@@ -224,130 +221,47 @@ void getTimestamp(){
   );
 }
 
-// // set the base JSON strings for the sensors
-// String jsonSensorTemp(
-// "{\
-//   \"name\": \"Alisio Temperature\",\
-//   \"unique_id\": \"alisio_temp\",\
-//   \"object_id\": \"temp\",\
-//   \"icon\": \"mdi:thermometer\",\
-//   \"unit_of_measurement\": \"°C\",\
-//   \"device_class\": \"temperature\",\
-//   \"state_class\": \"measurement\",\
-//   \"qos\": \"0\",\
-//   \"state_topic\": \"mqttClientName/temp\",\
-//   \"force_update\": \"true\",\
-//   \"device\": {\
-//   \"identifiers\": [\
-//   \"mqttClientName\" ],\
-//   \"name\": \"Alisio\",\
-//   \"model\": \"A001\",\
-//   \"manufacturer\": \"PabloGRB\",\
-//   \"suggested_area\": \"Home\"}\
-// }");
-// String jsonSensorRhum(
-// "{\
-//   \"name\": \"Alisio Relative Humidity\",\
-//   \"unique_id\": \"alisio_rhum\",\
-//   \"object_id\": \"rhum\",\
-//   \"icon\": \"mdi:water-percent\",\
-//   \"unit_of_measurement\": \"%\",\
-//   \"device_class\": \"humidity\",\
-//   \"state_class\": \"measurement\",\
-//   \"qos\": \"0\",\
-//   \"state_topic\": \"mqttClientName/rhum\",\
-//   \"force_update\": \"true\",\
-//   \"device\": {\
-//   \"identifiers\": [\
-//   \"mqttClientName\"],\
-//   \"name\": \"Alisio\",\
-//   \"model\": \"A001\",\
-//   \"manufacturer\": \"PabloGRB\",\
-//   \"suggested_area\": \"Home\"}\
-// }");
-// String jsonSensorPM01(
-// "{\
-//   \"name\": \"Alisio PM1.0\",\
-//   \"unique_id\": \"alisio_pm01\",\
-//   \"object_id\": \"pm01\",\
-//   \"icon\": \"mdi:blur\",\
-//   \"unit_of_measurement\": \"µg/m³\",\
-//   \"device_class\": \"PM1\",\
-//   \"state_class\": \"measurement\",\
-//   \"qos\": \"0\",\
-//   \"state_topic\": \"mqttClientName/pm01\",\
-//   \"force_update\": \"true\",\
-//   \"device\": {\
-//   \"identifiers\": [\
-//   \"mqttClientName\"],\
-//   \"name\": \"Alisio\",\
-//   \"model\": \"A001\",\
-//   \"manufacturer\": \"PabloGRB\",\
-//   \"suggested_area\": \"Home\"}\
-// }");
-// String jsonSensorPM25(
-// "{\
-//   \"name\": \"Alisio PM2.5\",\
-//   \"unique_id\": \"alisio_pm25\",\
-//   \"object_id\": \"pm25\",\
-//   \"icon\": \"mdi:blur\",\
-//   \"unit_of_measurement\": \"µg/m³\",\
-//   \"device_class\": \"PM25\",\
-//   \"state_class\": \"measurement\",\
-//   \"qos\": \"0\",\
-//   \"state_topic\": \"mqttClientName/pm25\",\
-//   \"force_update\": \"true\",\
-//   \"device\": {\
-//   \"identifiers\": [\
-//   \"mqttClientName\"],\
-//   \"name\": \"Alisio\",\
-//   \"model\": \"A001\",\
-//   \"manufacturer\": \"PabloGRB\",\
-//   \"suggested_area\": \"Home\"}\
-// }");
-// String jsonSensorPM10(
-// "{\
-//   \"name\": \"Alisio PM10\",\
-//   \"unique_id\": \"alisio_pm10\",\
-//   \"object_id\": \"pm10\",\
-//   \"icon\": \"mdi:blur\",\
-//   \"unit_of_measurement\": \"µg/m³\",\
-//   \"device_class\": \"PM10\",\
-//   \"state_class\": \"measurement\",\
-//   \"qos\": \"0\",\
-//   \"state_topic\": \"mqttClientName/pm10\",\
-//   \"force_update\": \"true\",\
-//   \"device\": {\
-//   \"identifiers\": [\
-//   \"mqttClientName\"],\
-//   \"name\": \"Alisio\",\
-//   \"model\": \"A001\",\
-//   \"manufacturer\": \"PabloGRB\",\
-//   \"suggested_area\": \"Home\"}\
-// }");
+void sendDiscoveryMessages() {
+  // HASS auto-discovery messages
+  Serial.println("Sending HASS auto-discovery messages");
 
-// void sendDiscoveryMessages() {
-//     // HASS auto-discovery messages
-//   Serial.println("Sending HASS auto-discovery messages");
-//   lcd.setCursor(0, 1);
-//   lcd.send_string("HASS auto-disc  ");
+  // Create the sensors and publish the messages
+  pubAutodiscSensor("Temperature", "temp", "thermometer", "°C", "temperature");
+  pubAutodiscSensor("Relative Humidity", "rhum", "water-percent", "%", "humidity");
+  pubAutodiscSensor("PM1.0", "pm01", "blur", "µg/m³", "PM1");
+  pubAutodiscSensor("PM2.5", "pm25", "blur", "µg/m³", "PM25");
+  pubAutodiscSensor("PM10", "pm10", "blur", "µg/m³", "PM10");
+  pubAutodiscSensor("Bin Counts", "bincnt", "blur", "Hz", "frequency");
+}
+
+void pubAutodiscSensor(String sensorName, String sensorAbb, String sensorIcon, String sensorUnit, String sensorClass) {
+  JsonDocument autoDiscovery;
+  // Create the device object
+  JsonObject device = autoDiscovery["device"].to<JsonObject>();
+  device["identifiers"][0] = mqtt.getMqttClientName();
+  device["name"] = "Alisio OPC-N3";
+  device["model"] = "A002";
+  device["manufacturer"] = "PabloGRB";
+  device["suggested_area"] = "Home";
+  // Add sensor keys to the Json
+  autoDiscovery["name"] = "Alisio " + sensorName;
+  autoDiscovery["unique_id"] = String(mqtt.getMqttClientName()) + "_" + sensorAbb;
+  autoDiscovery["object_id"] = sensorAbb;
+  autoDiscovery["icon"] = "mdi:" + sensorIcon;
+  autoDiscovery["unit_of_measurement"] = sensorUnit;
+  autoDiscovery["device_class"] = sensorClass;
+  autoDiscovery["state_class"] = "measurement";
+  autoDiscovery["qos"] = "0";
+  sprintf(mqttTopic, "%s/%s", mqtt.getMqttClientName(), sensorAbb);
+  autoDiscovery["state_topic"] = mqttTopic;
+  autoDiscovery["force_update"] = "true";
+  // Output strings
+  sprintf(mqttTopic, "homeassistant/sensor/%s_%s/config", mqtt.getMqttClientName(), sensorAbb);
+  String autoDiscoveryString;
+  // Serialize
+  serializeJson(autoDiscovery, autoDiscoveryString);
+  // Publish
+  delay(50);
+  mqtt.publish(mqttTopic, autoDiscoveryString, true);
   
-//   // replace the mqttClientName placeholder with the actual client name
-//   jsonSensorTemp.replace("mqttClientName", mqtt.getMqttClientName());
-//   jsonSensorRhum.replace("mqttClientName", mqtt.getMqttClientName());
-//   jsonSensorPM01.replace("mqttClientName", mqtt.getMqttClientName());
-//   jsonSensorPM25.replace("mqttClientName", mqtt.getMqttClientName());
-//   jsonSensorPM10.replace("mqttClientName", mqtt.getMqttClientName());
-//   // publish the discovery messages
-//   delay(50);
-//   mqtt.publish("homeassistant/sensor/alisio_temp/config", jsonSensorTemp, true);
-//   delay(50);
-//   mqtt.publish("homeassistant/sensor/alisio_rhum/config", jsonSensorRhum, true);
-//   delay(50);
-//   mqtt.publish("homeassistant/sensor/alisio_pm01/config", jsonSensorPM01, true);
-//   delay(50);
-//   mqtt.publish("homeassistant/sensor/alisio_pm25/config", jsonSensorPM25, true);
-//   delay(50);
-//   mqtt.publish("homeassistant/sensor/alisio_pm10/config", jsonSensorPM10, true);
-//   delay(50);
-// }
+}
